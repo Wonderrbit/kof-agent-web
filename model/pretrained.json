@@ -1,0 +1,120 @@
+{
+  "config": {
+    "vocab_size": 500,
+    "embed_dim": 32,
+    "lstm_units": 48,
+    "num_classes": 20,
+    "max_sequence_length": 30,
+    "patterns": [
+      "hello", "function", "record", "class", "list", "map",
+      "for_loop", "if_else", "when", "lambda", "http", "json",
+      "async", "try_catch", "inheritance", "interface", "null_check",
+      "route", "database", "record_method"
+    ]
+  },
+  "pattern_weights": {
+    "hello": {
+      "keywords": ["olá", "mundo", "hello", "imprimir", "mensagem", "println"],
+      "weight": 2.0
+    },
+    "function": {
+      "keywords": ["função", "function", "método", "method", "definir", "calcular"],
+      "weight": 2.0
+    },
+    "record": {
+      "keywords": ["registro", "record", "estrutura", "dados", "definir"],
+      "weight": 2.0
+    },
+    "class": {
+      "keywords": ["classe", "class", "objeto", "orientação", "abstrata"],
+      "weight": 2.0
+    },
+    "list": {
+      "keywords": ["lista", "list", "array", "coleção", "itens", "elementos"],
+      "weight": 2.0
+    },
+    "map": {
+      "keywords": ["mapa", "map", "dicionário", "chave", "valor", "lookup"],
+      "weight": 2.0
+    },
+    "for_loop": {
+      "keywords": ["loop", "for", "iterar", "para", "cada", "repetir"],
+      "weight": 2.0
+    },
+    "if_else": {
+      "keywords": ["se", "if", "condição", "senão", "else", "condicional"],
+      "weight": 2.0
+    },
+    "when": {
+      "keywords": ["quando", "when", "switch", "caso", "escolha", "cases"],
+      "weight": 2.0
+    },
+    "lambda": {
+      "keywords": ["lambda", "anônima", "arrow", "closure", "callback"],
+      "weight": 2.0
+    },
+    "http": {
+      "keywords": ["http", "web", "servidor", "api", "rest", "express", "endpoint"],
+      "weight": 2.0
+    },
+    "json": {
+      "keywords": ["json", "serializar", "parse", "encode", "decode", "marshal"],
+      "weight": 2.0
+    },
+    "async": {
+      "keywords": ["async", "assíncrono", "concorrente", "thread", "spawn", "parallel"],
+      "weight": 2.0
+    },
+    "try_catch": {
+      "keywords": ["try", "catch", "erro", "exceção", "tratar", "handling"],
+      "weight": 2.0
+    },
+    "inheritance": {
+      "keywords": ["herança", "extends", "herdar", "pai", "filho", "super"],
+      "weight": 2.0
+    },
+    "interface": {
+      "keywords": ["interface", "contrato", "abstrato", "abstração"],
+      "weight": 2.0
+    },
+    "null_check": {
+      "keywords": ["null", "nulo", "nil", "verificar", "check", "safety"],
+      "weight": 2.0
+    },
+    "route": {
+      "keywords": ["rota", "route", "endpoint", "url", "path", "get", "post"],
+      "weight": 2.0
+    },
+    "database": {
+      "keywords": ["banco", "database", "sql", "orm", "persistência", "db", "query"],
+      "weight": 2.0
+    },
+    "record_method": {
+      "keywords": ["record", "método", "behavior", "ação", "function"],
+      "weight": 2.0
+    }
+  },
+  "intent_keywords": {
+    "create": ["criar", "crie", "cria", "fazer", "faz", "gerar", "gere", "gera"],
+    "edit": ["editar", "edite", "edita", "mudar", "mude", "alterar", "altere"],
+    "repair": ["consertar", "conserta", "arrumar", "arruma", "corrigir", "corrija"],
+    "explain": ["explicar", "explique"],
+    "refactor": ["refatorar", "refatore"],
+    "search": ["buscar", "busque", "procurar", "procure"],
+    "runtests": ["rodar", "rode", "testar", "teste", "executar"]
+  },
+  "object_keywords": {
+    "Website": ["site", "website", "página", "pagina"],
+    "CRUD": ["crud"],
+    "API": ["api"],
+    "RPA": ["rpa"],
+    "UI": ["ui", "tela", "interface"],
+    "Docs": ["docs", "documentação", "documentacao"],
+    "Tests": ["teste", "testes"],
+    "Diagnostic": ["erro", "diagnostico"],
+    "Symbol": ["símbolo", "função", "classe", "symbol"]
+  },
+  "version": "1.0.0",
+  "trained_at": "2026-09-15T17:20:00Z",
+  "description": "Pre-computed pattern weights for KOF Agent (no training needed)"
+}

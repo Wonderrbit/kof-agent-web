@@ -1,7 +1,8 @@
 /**
- * KOF Agent - Neural Classifier with TensorFlow.js
+ * KOF Agent - Neural Classifier with Pre-trained Weights
  * 
- * Configurable architecture for testing different neuron counts
+ * Loads pre-computed pattern weights (no training needed)
+ * Falls back to TensorFlow.js for additional training if needed
  */
 
 class KofNeuralClassifier {
@@ -9,11 +10,11 @@ class KofNeuralClassifier {
         this.brain = new KofBrain();
         this.model = null;
         this.patterns = this.loadPatterns();
+        this.pretrained = null;
+        this.isReady = false;
         this.vocabulary = new Map();
         this.maxSequenceLength = 30;
         this.vocabSize = 500;
-        this.isReady = false;
-        this.architecture = null;
     }
 
     loadPatterns() {
@@ -41,6 +42,145 @@ class KofNeuralClassifier {
         ];
     }
 
+    /**
+     * Load pre-trained weights from JSON
+     */
+    async loadPretrained() {
+        try {
+            const response = await fetch('model/pretrained.json');
+            if (response.ok) {
+                this.pretrained = await response.json();
+                this.isReady = true;
+                console.log('Pre-trained weights loaded:', this.pretrained.config);
+                return true;
+            }
+        } catch (e) {
+            console.warn('Pre-trained weights not found, using rule-based only');
+        }
+        return false;
+    }
+
+    /**
+     * Classify using pre-trained pattern weights
+     */
+    classifyWithPretrained(text) {
+        if (!this.pretrained) return null;
+
+        const tokens = this.brain.tokenize(text);
+        const tokenSet = new Set(tokens);
+        
+        let bestPattern = 'unknown';
+        let bestScore = 0;
+        const scores = {};
+
+        for (const [patternName, patternData] of Object.entries(this.pretrained.pattern_weights)) {
+            let score = 0;
+            
+            for (const keyword of patternData.keywords) {
+                if (tokenSet.has(keyword)) {
+                    score += patternData.weight * 2;
+                } else if (tokens.some(t => t.includes(keyword) || keyword.includes(t))) {
+                    score += patternData.weight;
+                }
+            }
+
+            scores[patternName] = score;
+            
+            if (score > bestScore) {
+                bestScore = score;
+                bestPattern = patternName;
+            }
+        }
+
+        // Normalize confidence
+        const totalScore = Object.values(scores).reduce((a, b) => a + b, 0);
+        const confidence = totalScore > 0 ? bestScore / totalScore : 0;
+
+        // Top 3
+        const top3 = Object.entries(scores)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .filter(([_, s]) => s > 0)
+            .map(([name, score]) => ({
+                name,
+                confidence: totalScore > 0 ? (score / totalScore).toFixed(3) : 0
+            }));
+
+        return {
+            pattern: bestPattern,
+            confidence: confidence.toFixed(3),
+            top3,
+            method: 'pretrained'
+        };
+    }
+
+    /**
+     * Main classify method
+     */
+    classify(text) {
+        const brainResult = this.brain.process(text);
+
+        // Try pre-trained first
+        const pretrainedResult = this.classifyWithPretrained(text);
+        
+        if (pretrainedResult && pretrainedResult.pattern !== 'unknown') {
+            return {
+                method: 'pretrained',
+                intent: brainResult.intent,
+                pattern: pretrainedResult.pattern,
+                confidence: (brainResult.confidence / 100 + parseFloat(pretrainedResult.confidence)) / 2,
+                neuralPattern: pretrainedResult.pattern,
+                neuralConfidence: parseFloat(pretrainedResult.confidence),
+                tools: brainResult.tools,
+                entities: brainResult.entities,
+                topPredictions: pretrainedResult.top3
+            };
+        }
+
+        // Fallback to TF.js if available and trained
+        if (this.model && this.isReady && typeof tf !== 'undefined') {
+            return this.classifyWithTF(text, brainResult);
+        }
+
+        // Final fallback: rule-based
+        return {
+            method: 'rule-based',
+            intent: brainResult.intent,
+            pattern: brainResult.entities.kofPattern || 'unknown',
+            confidence: brainResult.confidence / 100,
+            tools: brainResult.tools,
+            entities: brainResult.entities
+        };
+    }
+
+    /**
+     * TF.js classification (if model is trained)
+     */
+    classifyWithTF(text, brainResult) {
+        const sequence = this.textToSequence(text);
+        const inputTensor = tf.tensor2d([sequence]);
+        const prediction = this.model.predict(inputTensor);
+        const probs = prediction.dataSync();
+        const maxIdx = probs.indexOf(Math.max(...probs));
+
+        inputTensor.dispose();
+        prediction.dispose();
+
+        return {
+            method: 'tfjs',
+            intent: brainResult.intent,
+            pattern: brainResult.entities.kofPattern || this.patterns[maxIdx].name,
+            confidence: (brainResult.confidence / 100 + probs[maxIdx]) / 2,
+            neuralPattern: this.patterns[maxIdx].name,
+            neuralConfidence: probs[maxIdx],
+            tools: brainResult.tools,
+            entities: brainResult.entities
+        };
+    }
+
+    /**
+     * Build vocabulary for TF.js
+     */
     buildVocabulary(texts) {
         const wordCounts = new Map();
         for (const text of texts) {
@@ -66,245 +206,32 @@ class KofNeuralClassifier {
     }
 
     /**
-     * Create model with configurable architecture
-     * 
-     * Presets:
-     * - 'tiny':     Embedding(32) → LSTM(32) → Dense(20)                    ~8k params
-     * - 'small':    Embedding(32) → LSTM(48) → Dense(32) → Dense(20)       ~15k params
-     * - 'medium':   Embedding(64) → LSTM(64) → LSTM(32) → Dense(32)        ~35k params
-     * - 'large':    Embedding(64) → LSTM(128) → LSTM(64) → Dense(64)       ~90k params
-     * - 'xlarge':   Embedding(128) → LSTM(256) → LSTM(128) → Dense(128)    ~200k params
-     * - 'custom':   use config object
+     * Create TF.js model (optional, for additional training)
      */
-    async createModel(preset = 'small', customConfig = null) {
-        if (typeof tf === 'undefined') {
-            console.warn('TensorFlow.js not loaded');
-            return;
-        }
+    async createModel(preset = 'small') {
+        if (typeof tf === 'undefined') return null;
 
         const numClasses = this.patterns.length;
         const vocabSize = Math.max(this.vocabulary.size + 1, this.vocabSize);
 
         const configs = {
-            tiny: {
-                name: 'Tiny',
-                layers: [
-                    { type: 'embedding', inputDim: vocabSize, outputDim: 32, inputLength: this.maxSequenceLength },
-                    { type: 'lstm', units: 32 },
-                    { type: 'dense', units: numClasses, activation: 'softmax' }
-                ]
-            },
-            small: {
-                name: 'Small',
-                layers: [
-                    { type: 'embedding', inputDim: vocabSize, outputDim: 32, inputLength: this.maxSequenceLength },
-                    { type: 'lstm', units: 48 },
-                    { type: 'dense', units: 32, activation: 'relu' },
-                    { type: 'dropout', rate: 0.3 },
-                    { type: 'dense', units: numClasses, activation: 'softmax' }
-                ]
-            },
-            medium: {
-                name: 'Medium',
-                layers: [
-                    { type: 'embedding', inputDim: vocabSize, outputDim: 64, inputLength: this.maxSequenceLength },
-                    { type: 'lstm', units: 64, returnSequences: true },
-                    { type: 'lstm', units: 32 },
-                    { type: 'dense', units: 32, activation: 'relu' },
-                    { type: 'dropout', rate: 0.3 },
-                    { type: 'dense', units: numClasses, activation: 'softmax' }
-                ]
-            },
-            large: {
-                name: 'Large',
-                layers: [
-                    { type: 'embedding', inputDim: vocabSize, outputDim: 64, inputLength: this.maxSequenceLength },
-                    { type: 'lstm', units: 128, returnSequences: true, dropout: 0.2 },
-                    { type: 'lstm', units: 64, dropout: 0.2 },
-                    { type: 'dense', units: 64, activation: 'relu' },
-                    { type: 'dropout', rate: 0.3 },
-                    { type: 'dense', units: numClasses, activation: 'softmax' }
-                ]
-            },
-            xlarge: {
-                name: 'XLarge',
-                layers: [
-                    { type: 'embedding', inputDim: vocabSize, outputDim: 128, inputLength: this.maxSequenceLength },
-                    { type: 'lstm', units: 256, returnSequences: true, dropout: 0.2 },
-                    { type: 'lstm', units: 128, returnSequences: true, dropout: 0.2 },
-                    { type: 'lstm', units: 64, dropout: 0.3 },
-                    { type: 'batchNorm': true },
-                    { type: 'dense', units: 128, activation: 'relu' },
-                    { type: 'dropout', rate: 0.4 },
-                    { type: 'dense', units: 64, activation: 'relu' },
-                    { type: 'dropout', rate: 0.3 },
-                    { type: 'dense', units: numClasses, activation: 'softmax' }
-                ]
-            }
+            small: { embed: 32, lstm: 48, dense: 32 },
+            medium: { embed: 64, lstm: 64, dense: 32 },
+            large: { embed: 64, lstm: 128, dense: 64 }
         };
 
-        const config = customConfig || configs[preset] || configs.small;
-        this.architecture = { preset: customConfig ? 'custom' : preset, ...config };
+        const cfg = configs[preset] || configs.small;
 
         this.model = tf.sequential();
+        this.model.add(tf.layers.embedding({ inputDim: vocabSize, outputDim: cfg.embed, inputLength: this.maxSequenceLength }));
+        this.model.add(tf.layers.lstm({ units: cfg.lstm }));
+        this.model.add(tf.layers.dense({ units: cfg.dense, activation: 'relu' }));
+        this.model.add(tf.layers.dropout({ rate: 0.3 }));
+        this.model.add(tf.layers.dense({ units: numClasses, activation: 'softmax' }));
 
-        for (const layer of config.layers) {
-            if (layer.type === 'embedding') {
-                this.model.add(tf.layers.embedding({
-                    inputDim: layer.inputDim,
-                    outputDim: layer.outputDim,
-                    inputLength: layer.inputLength
-                }));
-            } else if (layer.type === 'lstm') {
-                this.model.add(tf.layers.lstm({
-                    units: layer.units,
-                    returnSequences: layer.returnSequences || false,
-                    dropout: layer.dropout || 0
-                }));
-            } else if (layer.type === 'dense') {
-                this.model.add(tf.layers.dense({
-                    units: layer.units,
-                    activation: layer.activation
-                }));
-            } else if (layer.type === 'dropout') {
-                this.model.add(tf.layers.dropout({ rate: layer.rate }));
-            } else if (layer.type === 'batchNorm') {
-                this.model.add(tf.layers.batchNormalization());
-            }
-        }
-
-        this.model.compile({
-            optimizer: 'adam',
-            loss: 'categoricalCrossentropy',
-            metrics: ['accuracy']
-        });
+        this.model.compile({ optimizer: 'adam', loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
 
         return this.model;
-    }
-
-    generateTrainingData(numSamples = 600) {
-        const texts = [];
-        const labels = [];
-
-        const templates = {
-            'hello': ['olá mundo', 'hello world', 'imprimir olá', 'mostrar mensagem', 'println hello'],
-            'function': ['criar função', 'definir método', 'function calcular', 'criar function', 'método soma'],
-            'record': ['criar registro', 'record usuário', 'estrutura dados', 'definir record', 'registro campos'],
-            'class': ['criar classe', 'class animal', 'definir classe', 'nova classe', 'classe abstrata'],
-            'list': ['criar lista', 'lista itens', 'array elementos', 'list dados', 'lista vazia'],
-            'map': ['criar mapa', 'dicionário dados', 'map lookup', 'mapa chave-valor', 'tabela consulta'],
-            'for_loop': ['loop para cada', 'iterar lista', 'for coleção', 'repetir itens', 'cada elemento'],
-            'if_else': ['condicional se', 'if else', 'verificar condição', 'se senão', 'decisão lógica'],
-            'when': ['switch caso', 'when valor', 'escolha multipla', 'cases seleção', 'pattern matching'],
-            'lambda': ['função anônima', 'lambda expression', 'arrow function', 'closure', 'callback lambda'],
-            'http': ['servidor web', 'http server', 'api rest', 'rota get', 'endpoint'],
-            'json': ['serializar json', 'parse json', 'encode objeto', 'decode json', 'marshal dados'],
-            'async': ['async await', 'concorrência', 'spawn thread', 'tarefa assíncrona', 'parallel'],
-            'try_catch': ['tratar erro', 'try catch', 'exceção', 'error handling', 'capturar erro'],
-            'inheritance': ['herança classe', 'extends pai', 'filho herda', 'super classe', 'herdar'],
-            'interface': ['interface contrato', 'definir interface', 'abstração', 'contrato método'],
-            'null_check': ['verificar null', 'null safety', 'checar nulo', 'nil check', 'validar null'],
-            'route': ['rota http', 'url endpoint', 'path rota', 'definir rota', 'router express'],
-            'database': ['banco dados', 'sql query', 'orm persistência', 'database table', 'conexão db'],
-            'record_method': ['record método', 'método record', 'behavior record', 'record function']
-        };
-
-        for (let i = 0; i < numSamples; i++) {
-            const idx = i % this.patterns.length;
-            const p = this.patterns[idx];
-            const tpls = templates[p.name] || [p.desc];
-            const tpl = tpls[Math.floor(Math.random() * tpls.length)];
-            const prefixes = ['', 'kof ', 'como ', 'preciso ', 'quero '];
-            const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-            texts.push(prefix + tpl);
-            labels.push(idx);
-        }
-        return { texts, labels };
-    }
-
-    async train(texts, labels, epochs = 10) {
-        if (!this.model) await this.createModel('small');
-        if (!this.model) { this.isReady = true; return; }
-
-        this.buildVocabulary(texts);
-        const sequences = texts.map(t => this.textToSequence(t));
-        const numClasses = this.patterns.length;
-        const oneHot = labels.map(idx => {
-            const arr = new Array(numClasses).fill(0);
-            arr[idx] = 1;
-            return arr;
-        });
-
-        const xs = tf.tensor2d(sequences);
-        const ys = tf.tensor2d(oneHot);
-
-        const history = await this.model.fit(xs, ys, {
-            epochs,
-            batchSize: 32,
-            shuffle: true,
-            validationSplit: 0.1,
-            callbacks: {
-                onEpochEnd: (epoch, logs) => {
-                    console.log(`Epoch ${epoch + 1}: loss=${logs.loss.toFixed(4)} acc=${logs.acc.toFixed(4)}`);
-                }
-            }
-        });
-
-        xs.dispose();
-        ys.dispose();
-        this.isReady = true;
-        return history;
-    }
-
-    classify(text) {
-        const brainResult = this.brain.process(text);
-
-        if (!this.model || !this.isReady) {
-            return {
-                method: 'rule-based',
-                intent: brainResult.intent,
-                pattern: brainResult.entities.kofPattern || 'unknown',
-                confidence: brainResult.confidence / 100,
-                tools: brainResult.tools,
-                entities: brainResult.entities
-            };
-        }
-
-        const sequence = this.textToSequence(text);
-        const inputTensor = tf.tensor2d([sequence]);
-        const prediction = this.model.predict(inputTensor);
-        const probs = prediction.dataSync();
-        const maxIdx = probs.indexOf(Math.max(...probs));
-
-        inputTensor.dispose();
-        prediction.dispose();
-
-        return {
-            method: 'hybrid',
-            intent: brainResult.intent,
-            pattern: brainResult.entities.kofPattern || this.patterns[maxIdx].name,
-            confidence: (brainResult.confidence / 100 + probs[maxIdx]) / 2,
-            neuralPattern: this.patterns[maxIdx].name,
-            neuralConfidence: probs[maxIdx],
-            tools: brainResult.tools,
-            entities: brainResult.entities
-        };
-    }
-
-    getParamCount() {
-        if (!this.model) return 0;
-        return this.model.layers.reduce((sum, l) => sum + l.countParams(), 0);
-    }
-
-    getModelInfo() {
-        return {
-            params: this.getParamCount(),
-            layers: this.model ? this.model.layers.length : 0,
-            vocabSize: this.vocabulary.size,
-            numClasses: this.patterns.length,
-            isReady: this.isReady,
-            architecture: this.architecture
-        };
     }
 
     generateCode(intent, entities) {
