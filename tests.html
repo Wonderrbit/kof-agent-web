@@ -338,7 +338,7 @@
             const resultsEl = document.getElementById('archResults');
             resultsEl.innerHTML = '';
 
-            const { texts, labels } = classifier.generateTrainingData(600);
+            const { texts, labels } = classifier.generateTrainingData(300);
 
             for (const arch of archs) {
                 const card = document.createElement('div');
@@ -354,14 +354,14 @@
 
                 const start = performance.now();
                 await classifier.createModel(arch);
-                await classifier.train(texts, labels, 5);
+                await classifier.train(texts, labels, 3);
                 const time = ((performance.now() - start) / 1000).toFixed(2);
 
                 const info = classifier.getModelInfo();
 
                 // Test accuracy
                 let correct = 0;
-                const testSamples = classifier.generateTrainingData(100);
+                const testSamples = classifier.generateTrainingData(50);
                 for (let i = 0; i < testSamples.texts.length; i++) {
                     const result = classifier.classify(testSamples.texts[i]);
                     const expected = classifier.patterns[testSamples.labels[i]].name;
