@@ -1,6 +1,6 @@
 <div dir="ltr">
 
-# KOF Agent
+# KOF Agent Web
 
 > Agente Neural para Kof Language — gera código KOF a partir de comandos em português.
 
