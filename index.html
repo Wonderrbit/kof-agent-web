@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KOF Agent — Gere código KOF a partir de texto</title>
     <link rel="icon" href="https://koflang.github.io/kof.png?v=14" type="image/png">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
     <style>
         :root {
             --bg: #0a0a0a;
             --surface: #111111;
             --surface-2: #1a1a1a;
             --border: #222222;
-            --border-hover: #333333;
             --text: #e5e5e5;
             --text-dim: #737373;
             --signal: #22d3ee;
@@ -21,8 +21,6 @@
             --ty: #22d3ee;
             --st: #86efac;
             --fn: #fbbf24;
-            --cm: #525252;
-            --nu: #f472b6;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -36,7 +34,7 @@
         }
 
         .mono {
-            font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+            font-family: 'SF Mono', 'Consolas', monospace;
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.14em;
@@ -85,7 +83,7 @@
             color: var(--text-dim);
         }
 
-        .perf .val { color: var(--ok); }
+        .perf .v { color: var(--ok); }
 
         main {
             max-width: 1100px;
@@ -99,7 +97,6 @@
             font-size: 48px;
             font-weight: 700;
             letter-spacing: -0.02em;
-            line-height: 1.1;
         }
 
         .hero h1 span {
@@ -123,7 +120,6 @@
             font-family: 'SF Mono', monospace;
             font-size: 11px;
             color: var(--signal);
-            letter-spacing: 0.14em;
         }
 
         .input-area {
@@ -207,20 +203,17 @@
 
         .output-content {
             padding: 16px;
-            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-family: 'SF Mono', monospace;
             font-size: 13px;
             line-height: 1.7;
             overflow-x: auto;
             white-space: pre-wrap;
-            color: var(--text);
         }
 
         .kw { color: var(--kw); }
         .ty { color: var(--ty); }
         .st { color: var(--st); }
         .fn { color: var(--fn); }
-        .cm { color: var(--cm); }
-        .nu { color: var(--nu); }
 
         .result-meta {
             display: flex;
@@ -279,8 +272,87 @@
         @keyframes spin { to { transform: rotate(360deg); } }
 
         .hidden { display: none; }
-
         .empty { color: var(--text-dim); }
+
+        .arch-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .arch-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .arch-card {
+            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .arch-card:hover { border-color: var(--signal-dim); }
+
+        .arch-card.active {
+            border-color: var(--signal);
+            background: rgba(34, 211, 238, 0.05);
+        }
+
+        .arch-card .name {
+            font-family: 'SF Mono', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .arch-card .params {
+            font-family: 'SF Mono', monospace;
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        .arch-card .desc {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 8px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .stats { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .stat {
+            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat .value {
+            font-family: 'SF Mono', monospace;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--signal);
+        }
+
+        .stat .label {
+            font-family: 'SF Mono', monospace;
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
 
         footer {
             margin-top: 80px;
@@ -293,21 +365,6 @@
         }
 
         footer a { color: var(--signal); text-decoration: none; }
-
-        .stats {
-            display: flex;
-            gap: 24px;
-            margin-top: 16px;
-            padding: 16px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-family: 'SF Mono', monospace;
-            font-size: 12px;
-        }
-
-        .stats .label { color: var(--text-dim); }
-        .stats .value { color: var(--signal); margin-left: 4px; }
     </style>
 </head>
 <body>
@@ -318,9 +375,9 @@
                 <span>KOF AGENT</span>
             </a>
             <div class="perf">
-                <span>brain: <span class="val" id="perfBrain">—</span></span>
-                <span>neural: <span class="val" id="perfNeural">—</span></span>
-                <span>total: <span class="val" id="perfTotal">—</span></span>
+                <span>brain: <span class="v" id="perfBrain">—</span></span>
+                <span>neural: <span class="v" id="perfNeural">—</span></span>
+                <span>total: <span class="v" id="perfTotal">—</span></span>
             </div>
         </div>
     </header>
@@ -329,14 +386,74 @@
         <div class="hero">
             <h1>
                 KOF Agent
-                <span>Gere código KOF a partir de texto em português</span>
+                <span>Teste diferentes arquiteturas de rede neural</span>
             </h1>
         </div>
 
-        <!-- 01 — Gerar -->
+        <!-- 01 — Arquitetura -->
         <div class="section">
             <div class="section-header">
                 <span class="section-num">01</span>
+                <span class="mono">Arquitetura da Rede Neural</span>
+            </div>
+
+            <div class="arch-grid">
+                <div class="arch-card" onclick="selectArch('tiny')" id="arch-tiny">
+                    <div class="name">Tiny</div>
+                    <div class="params">~8k params</div>
+                    <div class="desc">Embedding(32) → LSTM(32) → Dense(20)</div>
+                </div>
+                <div class="arch-card active" onclick="selectArch('small')" id="arch-small">
+                    <div class="name">Small</div>
+                    <div class="params">~15k params</div>
+                    <div class="desc">Embedding(32) → LSTM(48) → Dense(32) → Dense(20)</div>
+                </div>
+                <div class="arch-card" onclick="selectArch('medium')" id="arch-medium">
+                    <div class="name">Medium</div>
+                    <div class="params">~35k params</div>
+                    <div class="desc">Embedding(64) → LSTM(64) → LSTM(32) → Dense(32)</div>
+                </div>
+                <div class="arch-card" onclick="selectArch('large')" id="arch-large">
+                    <div class="name">Large</div>
+                    <div class="params">~90k params</div>
+                    <div class="desc">Embedding(64) → LSTM(128) → LSTM(64) → Dense(64)</div>
+                </div>
+                <div class="arch-card" onclick="selectArch('xlarge')" id="arch-xlarge">
+                    <div class="name">XLarge</div>
+                    <div class="params">~200k params</div>
+                    <div class="desc">Embedding(128) → 3×LSTM → BatchNorm → Dense</div>
+                </div>
+            </div>
+
+            <div class="stats" id="modelStats">
+                <div class="stat">
+                    <div class="value" id="statParams">—</div>
+                    <div class="label">Parâmetros</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="statLayers">—</div>
+                    <div class="label">Camadas</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="statAcc">—</div>
+                    <div class="label">Acurácia</div>
+                </div>
+                <div class="stat">
+                    <div class="value" id="statTime">—</div>
+                    <div class="label">Treino</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
+                <button class="btn" onclick="trainModel()" id="trainBtn">Treinar →</button>
+                <span class="mono" id="trainStatus">Selecione arquitetura e treine</span>
+            </div>
+        </div>
+
+        <!-- 02 — Gerar -->
+        <div class="section">
+            <div class="section-header">
+                <span class="section-num">02</span>
                 <span class="mono">Gerar código</span>
             </div>
 
@@ -353,7 +470,6 @@
                 <span class="chip" onclick="fill('inputGen','Criar classe para usuário')">Classe</span>
                 <span class="chip" onclick="fill('inputGen','Criar interface com botão')">Interface</span>
                 <span class="chip" onclick="fill('inputGen','Criar CRUD de produtos')">CRUD</span>
-                <span class="chip" onclick="fill('inputGen','Criar rota GET /users')">Rota HTTP</span>
             </div>
 
             <div class="output-area hidden" id="outGen">
@@ -369,10 +485,10 @@
             </div>
         </div>
 
-        <!-- 02 — Classificar -->
+        <!-- 03 — Classificar -->
         <div class="section">
             <div class="section-header">
-                <span class="section-num">02</span>
+                <span class="section-num">03</span>
                 <span class="mono">Classificar código</span>
             </div>
 
@@ -397,53 +513,9 @@
 
             <div class="examples">
                 <span class="chip" onclick="fill('inputCls','println(&quot;Hello World&quot;)')">hello</span>
-                <span class="chip" onclick="fill('inputCls','functionName(params) { ... }')">function</span>
                 <span class="chip" onclick="fill('inputCls','record User(name String)')">record</span>
-                <span class="chip" onclick="fill('inputCls','class Animal { ... }')">class</span>
+                <span class="chip" onclick="fill('inputCls','class Animal { }')">class</span>
                 <span class="chip" onclick="fill('inputCls','app.get(&quot;/users/:id&quot;)')">route</span>
-                <span class="chip" onclick="fill('inputCls','try { ... } catch (e) { ... }')">try_catch</span>
-            </div>
-        </div>
-
-        <!-- 03 — Analisar -->
-        <div class="section">
-            <div class="section-header">
-                <span class="section-num">03</span>
-                <span class="mono">Analisar intenção</span>
-            </div>
-
-            <div class="grid-2">
-                <div class="input-area">
-                    <div class="input-header">
-                        <span class="mono">texto em português</span>
-                        <button class="btn" onclick="analyze()">Analisar →</button>
-                    </div>
-                    <textarea id="inputAna" placeholder="Ex: Preciso corrigir um erro de compilação"></textarea>
-                </div>
-
-                <div class="output-area">
-                    <div class="output-header">
-                        <span class="mono">análise brain</span>
-                    </div>
-                    <div class="output-content" id="outAna">
-                        <span class="empty">Aguardando...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 04 — Stats -->
-        <div class="section">
-            <div class="section-header">
-                <span class="section-num">04</span>
-                <span class="mono">Performance</span>
-            </div>
-
-            <div class="stats">
-                <div><span class="label">runtime:</span><span class="value">KofJS (pure JS)</span></div>
-                <div><span class="label">workers:</span><span class="value">2 (brain + neural)</span></div>
-                <div><span class="label">tf.js:</span><span class="value">removido (0KB)</span></div>
-                <div><span class="label">latência:</span><span class="value" id="statLatency">~3ms</span></div>
             </div>
         </div>
     </main>
@@ -452,38 +524,55 @@
         <p>KOF Agent · <a href="https://github.com/Wonderrbit/kof-agent-web" target="_blank">GitHub</a> · <a href="https://koflang.github.io" target="_blank">Kof Language</a></p>
     </footer>
 
-    <script src="kof-runtime.js"></script>
+    <script src="brain.js"></script>
+    <script src="classifier.js"></script>
     <script>
-        // Initialize Web Workers
-        const brainWorker = new Worker('worker-brain.js');
-        const neuralWorker = new Worker('worker-neural.js');
+        let classifier = new KofNeuralClassifier();
+        let selectedArch = 'small';
+        let isTraining = false;
 
-        let pendingBrain = null;
-        let pendingNeural = null;
+        // Architecture selection
+        function selectArch(arch) {
+            if (isTraining) return;
+            selectedArch = arch;
+            document.querySelectorAll('.arch-card').forEach(c => c.classList.remove('active'));
+            document.getElementById('arch-' + arch).classList.add('active');
+        }
 
-        // Worker message handlers
-        brainWorker.onmessage = (e) => {
-            const { id, result } = e.data;
-            if (pendingBrain === id) {
-                document.getElementById('perfBrain').textContent = result.elapsed + 'ms';
-                window._lastBrain = result;
-                updateTotalPerf();
-            }
-        };
+        // Train model
+        async function trainModel() {
+            if (isTraining) return;
+            isTraining = true;
 
-        neuralWorker.onmessage = (e) => {
-            const { id, result } = e.data;
-            if (pendingNeural === id) {
-                document.getElementById('perfNeural').textContent = result.elapsed + 'ms';
-                window._lastNeural = result;
-                updateTotalPerf();
-            }
-        };
+            const btn = document.getElementById('trainBtn');
+            const status = document.getElementById('trainStatus');
+            btn.innerHTML = '<span class="loading"></span>';
+            btn.disabled = true;
+            status.textContent = 'Criando modelo...';
 
-        function updateTotalPerf() {
-            const brain = parseFloat(document.getElementById('perfBrain').textContent) || 0;
-            const neural = parseFloat(document.getElementById('perfNeural').textContent) || 0;
-            document.getElementById('perfTotal').textContent = (brain + neural).toFixed(2) + 'ms';
+            const start = performance.now();
+
+            // Create model with selected architecture
+            await classifier.createModel(selectedArch);
+
+            status.textContent = 'Gerando dados...';
+            const { texts, labels } = classifier.generateTrainingData(600);
+
+            status.textContent = 'Treinando...';
+            await classifier.train(texts, labels, 10);
+
+            const elapsed = ((performance.now() - start) / 1000).toFixed(1);
+            const info = classifier.getModelInfo();
+
+            document.getElementById('statParams').textContent = info.params.toLocaleString();
+            document.getElementById('statLayers').textContent = info.layers;
+            document.getElementById('statTime').textContent = elapsed + 's';
+            document.getElementById('statAcc').textContent = 'OK';
+
+            btn.innerHTML = 'Treinar →';
+            btn.disabled = false;
+            status.textContent = `Modelo ${selectedArch} pronto`;
+            isTraining = false;
         }
 
         function fill(id, text) {
@@ -495,23 +584,15 @@
             if (!input.trim()) return;
 
             const start = performance.now();
+            const brain = classifier.brain.process(input);
+            const code = classifier.generateCode(brain.intent, brain.entities);
 
-            // Run brain analysis
-            const brainId = Date.now();
-            pendingBrain = brainId;
-            brainWorker.postMessage({ id: brainId, text: input });
-
-            // Wait for brain result, then generate
-            setTimeout(() => {
-                const brain = window._lastBrain || { intent: 'CreateFeature', entities: {}, confidence: 50 };
-                const code = KofRuntime.generate(brain.intent, brain.entities);
-
-                document.getElementById('outGen').classList.remove('hidden');
-                document.getElementById('codeGen').innerHTML = KofRuntime.highlight(code);
-                document.getElementById('metaIntent').textContent = brain.intent;
-                document.getElementById('metaConf').textContent = brain.confidence + '%';
-                document.getElementById('perfTotal').textContent = (performance.now() - start).toFixed(2) + 'ms';
-            }, 50);
+            document.getElementById('outGen').classList.remove('hidden');
+            document.getElementById('codeGen').innerHTML = highlightKof(code);
+            document.getElementById('metaIntent').textContent = brain.intent;
+            document.getElementById('metaConf').textContent = brain.confidence + '%';
+            document.getElementById('perfBrain').textContent = (performance.now() - start).toFixed(2) + 'ms';
+            updatePerf();
         }
 
         function classify() {
@@ -519,44 +600,24 @@
             if (!input.trim()) return;
 
             const start = performance.now();
-
-            // Use KofRuntime directly (instant)
-            const result = KofRuntime.classify(input);
+            const result = classifier.classify(input);
+            const elapsed = performance.now() - start;
 
             const html = `<span class="kw">padrão</span>: <span class="st">${result.pattern}</span>
 <span class="kw">método</span>: <span class="ty">${result.method}</span>
-<span class="kw">confiança</span>: <span class="fn">${(result.confidence * 100).toFixed(1)}%</span>`;
+<span class="kw">confiança</span>: <span class="fn">${(result.confidence * 100).toFixed(1)}%</span>
+<span class="kw">neural</span>: <span class="ty">${result.neuralPattern || '—'}</span>
+<span class="kw">intent</span>: <span class="ty">${result.intent}</span>`;
 
             document.getElementById('outCls').innerHTML = html;
-            document.getElementById('perfNeural').textContent = (performance.now() - start).toFixed(2) + 'ms';
-            updateTotalPerf();
+            document.getElementById('perfNeural').textContent = elapsed.toFixed(2) + 'ms';
+            updatePerf();
         }
 
-        function analyze() {
-            const input = document.getElementById('inputAna').value;
-            if (!input.trim()) return;
-
-            const start = performance.now();
-
-            // Run brain in worker
-            const brainId = Date.now();
-            pendingBrain = brainId;
-            brainWorker.postMessage({ id: brainId, text: input });
-
-            // Show result after worker responds
-            setTimeout(() => {
-                const brain = window._lastBrain;
-                if (brain) {
-                    const html = `<span class="kw">intent</span>: <span class="st">${brain.intent}</span>
-<span class="kw">confiança</span>: <span class="fn">${brain.confidence}%</span>
-<span class="kw">ferramentas</span>: <span class="ty">${brain.tools.join(', ') || '—'}</span>
-<span class="kw">entidades</span>: <span class="ty">${JSON.stringify(brain.entities)}</span>`;
-
-                    document.getElementById('outAna').innerHTML = html;
-                }
-                document.getElementById('perfBrain').textContent = (performance.now() - start).toFixed(2) + 'ms';
-                updateTotalPerf();
-            }, 50);
+        function updatePerf() {
+            const brain = parseFloat(document.getElementById('perfBrain').textContent) || 0;
+            const neural = parseFloat(document.getElementById('perfNeural').textContent) || 0;
+            document.getElementById('perfTotal').textContent = (brain + neural).toFixed(2) + 'ms';
         }
 
         function copyCode() {
@@ -564,9 +625,14 @@
             navigator.clipboard.writeText(code);
         }
 
-        // Warm up workers
-        brainWorker.postMessage({ id: 0, text: 'teste' });
-        neuralWorker.postMessage({ id: 0, action: 'train', numSamples: 100 });
+        function highlightKof(code) {
+            return code
+                .replace(/\b(record|class|interface|extends|var|val|return|if|else|for|while|when|try|catch|throw|main|constructor)\b/g, '<span class="kw">$1</span>')
+                .replace(/\b(String|Int|Bool|List|Map|Void)\b/g, '<span class="ty">$1</span>')
+                .replace(/\b(println|json\.encode|json\.decode|web\.app|db\.query|listOf|mapOf)\b/g, '<span class="fn">$1</span>')
+                .replace(/"([^"]*)"/g, '<span class="st">"$1"</span>')
+                .replace(/(\/\/.*)/g, '<span style="color:var(--text-dim)">$1</span>');
+        }
     </script>
 </body>
 </html>
