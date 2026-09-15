@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KOF Agent - Brain Neural para Kof Language</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/kotlin.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --bg-input: #0d1117;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #3fb950;
+            --accent-purple: #bc8cff;
+            --accent-orange: #d29922;
+            --accent-red: #f85149;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-header h2 {
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+
+        .card-icon {
+            font-size: 1.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 1rem;
+            resize: vertical;
+        }
+
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: #3d444d;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .result-box {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .result-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+
+        .result-value {
+            font-family: 'Consolas', 'Monaco', monospace;
+            color: var(--accent-green);
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-right: 6px;
+            margin-bottom: 6px;
+        }
+
+        .tag-blue { background: rgba(88, 166, 255, 0.2); color: var(--accent-blue); }
+        .tag-green { background: rgba(63, 185, 80, 0.2); color: var(--accent-green); }
+        .tag-purple { background: rgba(188, 140, 255, 0.2); color: var(--accent-purple); }
+        .tag-orange { background: rgba(210, 153, 34, 0.2); color: var(--accent-orange); }
+
+        .patterns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .pattern-card {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pattern-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+
+        .pattern-card.active {
+            border-color: var(--accent-green);
+            background: rgba(63, 185, 80, 0.1);
+        }
+
+        .pattern-name {
+            font-weight: 600;
+            color: var(--accent-blue);
+            margin-bottom: 4px;
+        }
+
+        .pattern-desc {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: var(--bg-input);
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .log-box {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            padding: 10px;
+            background: var(--bg-input);
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .log-time {
+            color: var(--text-secondary);
+        }
+
+        .log-msg {
+            color: var(--accent-green);
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>KOF Agent</h1>
+            <p class="subtitle">Brain Neural para Kof Language - 100% no Navegador</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span id="statusText">Pronto</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="trainModel()" style="padding: 8px 16px; font-size: 0.9rem;">
+                    Treinar Modelo Neural
+                </button>
+                <span id="modelStatus" style="padding: 8px;">Modelo: Aguardando treino</span>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <!-- Brain Analysis Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon"></span>
+                    <h2>Análise Brain</h2>
+                </div>
+                
+                <div class="input-group">
+                    <label for="brainInput">Comando em Português</label>
+                    <textarea id="brainInput" rows="3" placeholder="Ex: Criar uma API REST para gerenciar usuários..."></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="analyzeBrain()">
+                        Analisar Comando
+                    </button>
+                    <button class="btn btn-secondary" onclick="trainModel()">
+                        Treinar Modelo
+                    </button>
+                </div>
+
+                <div class="result-box" id="brainResult" style="display: none;">
+                    <div class="result-label">Resultado da Análise</div>
+                    <div class="result-value" id="brainOutput"></div>
+                </div>
+
+                <div class="progress-bar" id="trainingProgress" style="display: none;">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Pattern Classification Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon"></span>
+                    <h2>Classificação Neural</h2>
+                </div>
+
+                <div class="input-group">
+                    <label for="classifierInput">Código ou Descrição</label>
+                    <textarea id="classifierInput" rows="3" placeholder="Ex: class User { name: String }"></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="classifyCode()">
+                        Classificar
+                    </button>
+                </div>
+
+                <div class="result-box" id="classifierResult" style="display: none;">
+                    <div class="result-label">Padrão Identificado</div>
+                    <div class="result-value" id="classifierOutput"></div>
+                </div>
+            </div>
+
+            <!-- Code Generator Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon"></span>
+                    <h2>Gerador de Código</h2>
+                </div>
+
+                <div class="input-group">
+                    <label for="generatorInput">O que deseja criar?</label>
+                    <input type="text" id="generatorInput" placeholder="Ex: Uma API REST com rotas GET e POST">
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="generateCode()">
+                        Gerar Código KOF
+                    </button>
+                </div>
+
+                <div class="result-box" id="generatorResult" style="display: none;">
+                    <div class="result-label">Código Gerado</div>
+                    <pre><code class="language-kotlin" id="generatorOutput"></code></pre>
+                </div>
+            </div>
+
+            <!-- KOF Patterns Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon"></span>
+                    <h2>Padrões KOF (20)</h2>
+                </div>
+
+                <div class="patterns-grid" id="patternsGrid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Statistics Card -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <span class="card-icon"></span>
+                    <h2>Estatísticas do Modelo</h2>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="statPatterns">20</div>
+                        <div class="stat-label">Padrões KOF</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statParams">~15k</div>
+                        <div class="stat-label">Parâmetros</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statLayers">5</div>
+                        <div class="stat-label">Camadas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statAccuracy">--</div>
+                        <div class="stat-label">Acurácia</div>
+                    </div>
+                </div>
+
+                <div class="tags" style="margin-top: 15px;">
+                    <span class="tag tag-blue">TensorFlow.js</span>
+                    <span class="tag tag-green">Edge AI</span>
+                    <span class="tag tag-purple">Lite (~15k params)</span>
+                    <span class="tag tag-orange">~2s treino</span>
+                </div>
+            </div>
+
+            <!-- Log Card -->
+            <div class="card full-width">
+                <div class="card-header">
+                    <span class="card-icon"></span>
+                    <h2>Log de Atividades</h2>
+                </div>
+
+                <div class="log-box" id="logBox">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="brain.js"></script>
+    <script src="classifier.js"></script>
+    <script>
+        // Initialize
+        let classifier = new KofNeuralClassifier();
+        let isModelTrained = false;
+
+        // Populate patterns grid
+        function populatePatterns() {
+            const grid = document.getElementById('patternsGrid');
+            const patterns = classifier.patterns;
+            
+            grid.innerHTML = patterns.map(p => `
+                <div class="pattern-card" onclick="selectPattern('${p.name}')">
+                    <div class="pattern-name">${p.name}</div>
+                    <div class="pattern-desc">${p.description}</div>
+                </div>
+            `).join('');
+        }
+
+        // Select pattern
+        function selectPattern(name) {
+            document.querySelectorAll('.pattern-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+            
+            const pattern = classifier.patterns.find(p => p.name === name);
+            if (pattern) {
+                document.getElementById('classifierInput').value = pattern.code;
+                classifyCode();
+            }
+        }
+
+        // Brain analysis
+        function analyzeBrain() {
+            const input = document.getElementById('brainInput').value;
+            if (!input.trim()) {
+                addLog('Aviso: Insira um comando para analisar');
+                return;
+            }
+
+            const result = classifier.brain.process(input);
+            
+            document.getElementById('brainResult').style.display = 'block';
+            document.getElementById('brainOutput').textContent = JSON.stringify(result, null, 2);
+            
+            addLog(`Brain: Intent="${result.intent}" Confidence=${result.confidence}%`);
+            
+            // Highlight
+            hljs.highlightAll();
+        }
+
+        // Classify code
+        function classifyCode() {
+            const input = document.getElementById('classifierInput').value;
+            if (!input.trim()) {
+                addLog('Aviso: Insira código para classificar');
+                return;
+            }
+
+            const result = classifier.classify(input);
+            
+            document.getElementById('classifierResult').style.display = 'block';
+            document.getElementById('classifierOutput').textContent = JSON.stringify(result, null, 2);
+            
+            addLog(`Classifier: Method="${result.method}" Pattern="${result.pattern}"`);
+        }
+
+        // Generate code
+        function generateCode() {
+            const input = document.getElementById('generatorInput').value;
+            if (!input.trim()) {
+                addLog('Aviso: Insira descrição para gerar código');
+                return;
+            }
+
+            const brainResult = classifier.brain.process(input);
+            const code = classifier.generateCode(brainResult.intent, brainResult.entities);
+            
+            document.getElementById('generatorResult').style.display = 'block';
+            document.getElementById('generatorOutput').textContent = code;
+            
+            // Highlight
+            hljs.highlightAll();
+            
+            addLog(`Generator: Intent="${brainResult.intent}" Code generated`);
+        }
+
+        // Train model
+        async function trainModel() {
+            addLog('Iniciando treino lightweight...');
+            document.getElementById('statusText').textContent = 'Treinando...';
+            document.getElementById('trainingProgress').style.display = 'block';
+
+            // Lite: 600 amostras, 10 épocas
+            const { texts, labels } = classifier.generateTrainingData(600);
+            
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += 10;
+                document.getElementById('progressFill').style.width = `${progress}%`;
+                if (progress >= 100) clearInterval(progressInterval);
+            }, 200);
+
+            try {
+                await classifier.train(texts, labels, 10);
+                isModelTrained = true;
+                
+                const info = classifier.getModelInfo();
+                document.getElementById('statParams').textContent = info.params.toLocaleString();
+                document.getElementById('statLayers').textContent = info.layers;
+                document.getElementById('statAccuracy').textContent = 'OK';
+                
+                document.getElementById('statusText').textContent = 'Modelo treinado';
+                document.getElementById('modelStatus').textContent = `Modelo: ${info.params.toLocaleString()} params`;
+                addLog(`Treino ok: ${info.params.toLocaleString()} params, ${info.layers} layers`);
+            } catch (error) {
+                addLog(`Erro: ${error.message}`);
+                document.getElementById('statusText').textContent = 'Erro';
+            }
+
+            document.getElementById('trainingProgress').style.display = 'none';
+        }
+
+        // Add log entry
+        function addLog(message) {
+            const logBox = document.getElementById('logBox');
+            const time = new Date().toLocaleTimeString('pt-BR');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-msg">${message}</span>`;
+            logBox.insertBefore(entry, logBox.firstChild);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            populatePatterns();
+            addLog('KOF Agent inicializado');
+            addLog('TensorFlow.js: ' + (typeof tf !== 'undefined' ? 'Carregado' : 'Não disponível'));
+            addLog('Pronto para uso');
+        });
+    </script>
+</body>
+</html>
