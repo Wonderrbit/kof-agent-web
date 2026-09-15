@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KOF Agent — Testes Automatizados</title>
+    <link rel="icon" href="https://koflang.github.io/kof.png?v=14" type="image/png">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111111;
+            --border: #222222;
+            --text: #e5e5e5;
+            --text-dim: #737373;
+            --signal: #22d3ee;
+            --ok: #22c55e;
+            --fail: #ef4444;
+            --warn: #eab308;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'SF Mono', 'Consolas', monospace;
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            font-size: 13px;
+        }
+
+        h1 {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: var(--signal);
+        }
+
+        .summary {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .summary .stat { text-align: center; }
+        .summary .value { font-size: 24px; font-weight: 700; }
+        .summary .label { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+        .summary .pass { color: var(--ok); }
+        .summary .fail { color: var(--fail); }
+        .summary .total { color: var(--signal); }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--signal);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .test {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .test .icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .test .icon.pass { background: var(--ok); color: #000; }
+        .test .icon.fail { background: var(--fail); color: #fff; }
+        .test .icon.pending { background: var(--border); color: var(--text-dim); }
+        .test .icon.running { background: var(--signal); color: #000; animation: pulse 0.5s infinite; }
+
+        @keyframes pulse { 50% { opacity: 0.5; } }
+
+        .test .name { flex: 1; }
+        .test .time { color: var(--text-dim); font-size: 11px; }
+        .test .detail { color: var(--text-dim); font-size: 11px; }
+
+        .btn {
+            padding: 10px 20px;
+            background: var(--signal);
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .btn:hover { opacity: 0.85; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .arch-results {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .arch-card {
+            padding: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .arch-card .name { font-weight: 600; margin-bottom: 4px; }
+        .arch-card .value { color: var(--signal); font-size: 18px; font-weight: 700; }
+        .arch-card .label { font-size: 10px; color: var(--text-dim); }
+
+        #log {
+            margin-top: 20px;
+            padding: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        .log-line { padding: 2px 0; }
+        .log-line.ok { color: var(--ok); }
+        .log-line.err { color: var(--fail); }
+    </style>
+</head>
+<body>
+    <h1>KOF Agent — Testes Automatizados</h1>
+
+    <div class="summary">
+        <div class="stat">
+            <div class="value total" id="totalTests">0</div>
+            <div class="label">Total</div>
+        </div>
+        <div class="stat">
+            <div class="value pass" id="passedTests">0</div>
+            <div class="label">Passou</div>
+        </div>
+        <div class="stat">
+            <div class="value fail" id="failedTests">0</div>
+            <div class="label">Falhou</div>
+        </div>
+        <div class="stat">
+            <div class="value" id="totalTime">—</div>
+            <div class="label">Tempo Total</div>
+        </div>
+    </div>
+
+    <button class="btn" onclick="runAllTests()" id="runBtn">Executar Todos os Testes</button>
+
+    <!-- Brain Tests -->
+    <div class="section" id="brainTests">
+        <div class="section-title">01 — Brain (Análise de Intenção)</div>
+    </div>
+
+    <!-- Neural Tests -->
+    <div class="section" id="neuralTests">
+        <div class="section-title">02 — Neural (Classificação)</div>
+    </div>
+
+    <!-- Runtime Tests -->
+    <div class="section" id="runtimeTests">
+        <div class="section-title">03 — KOF Runtime (Geração de Código)</div>
+    </div>
+
+    <!-- Architecture Tests -->
+    <div class="section" id="archTests">
+        <div class="section-title">04 — Arquiteturas (Comparação)</div>
+        <div class="arch-results" id="archResults"></div>
+    </div>
+
+    <div id="log"></div>
+
+    <script src="brain.js"></script>
+    <script src="classifier.js"></script>
+    <script>
+        const brain = new KofBrain();
+        const classifier = new KofNeuralClassifier();
+
+        let results = { passed: 0, failed: 0, total: 0, times: [] };
+
+        function addTest(sectionId, name) {
+            const section = document.getElementById(sectionId);
+            const div = document.createElement('div');
+            div.className = 'test';
+            div.id = 'test-' + name.replace(/\s/g, '-');
+            div.innerHTML = `
+                <div class="icon pending">—</div>
+                <div class="name">${name}</div>
+                <div class="time">—</div>
+                <div class="detail"></div>
+            `;
+            section.appendChild(div);
+            return div;
+        }
+
+        function setTestResult(testEl, pass, time, detail = '') {
+            const icon = testEl.querySelector('.icon');
+            const timeEl = testEl.querySelector('.time');
+            const detailEl = testEl.querySelector('.detail');
+
+            icon.className = 'icon ' + (pass ? 'pass' : 'fail');
+            icon.textContent = pass ? '✓' : '✗';
+            timeEl.textContent = time + 'ms';
+            detailEl.textContent = detail;
+
+            results.total++;
+            if (pass) results.passed++;
+            else results.failed++;
+            results.times.push(parseFloat(time));
+
+            document.getElementById('totalTests').textContent = results.total;
+            document.getElementById('passedTests').textContent = results.passed;
+            document.getElementById('failedTests').textContent = results.failed;
+            document.getElementById('totalTime').textContent = (results.times.reduce((a, b) => a + b, 0)).toFixed(1) + 'ms';
+        }
+
+        function log(msg, ok = true) {
+            const logEl = document.getElementById('log');
+            const line = document.createElement('div');
+            line.className = 'log-line ' + (ok ? 'ok' : 'err');
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            logEl.appendChild(line);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // ==================== BRAIN TESTS ====================
+
+        function testBrain() {
+            const tests = [
+                { input: 'Criar uma API REST', expected: 'CreateAPI' },
+                { input: 'Definir classe para usuário', expected: 'CreateFeature' },
+                { input: 'Tratar erro de compilação', expected: 'RepairGeneric' },
+                { input: 'Rodar testes', expected: 'RunTests' },
+                { input: 'Criar interface com botão', expected: 'CreateUI' },
+                { input: 'Refatorar código', expected: 'Refactor' },
+                { input: 'Buscar função no código', expected: 'SearchGeneric' },
+                { input: 'Explicar erro', expected: 'ExplainDiagnostic' },
+                { input: 'Criar CRUD', expected: 'GenerateCRUD' },
+                { input: 'Criar rota HTTP', expected: 'CreateAPI' }
+            ];
+
+            for (const t of tests) {
+                const el = addTest('brainTests', `Brain: "${t.input}"`);
+                const start = performance.now();
+                const result = brain.process(t.input);
+                const time = (performance.now() - start).toFixed(2);
+
+                const pass = result.intent === t.expected;
+                setTestResult(el, pass, time, `intent=${result.intent} (esperado: ${t.expected})`);
+                log(`Brain: "${t.input}" → ${result.intent} ${pass ? '✓' : '✗'}`, pass);
+            }
+        }
+
+        // ==================== NEURAL TESTS ====================
+
+        function testNeural() {
+            const tests = [
+                { input: 'println("Hello World")', expected: 'hello' },
+                { input: 'record User(name String)', expected: 'record' },
+                { input: 'class Animal { }', expected: 'class' },
+                { input: 'for (var item in list)', expected: 'for_loop' },
+                { input: 'if (condition) { }', expected: 'if_else' },
+                { input: 'app.get("/users/:id")', expected: 'route' },
+                { input: 'try { } catch (e) { }', expected: 'try_catch' },
+                { input: 'json.encode(obj)', expected: 'json' },
+                { input: 'spawn task()', expected: 'async' },
+                { input: 'interface Name { }', expected: 'interface' }
+            ];
+
+            for (const t of tests) {
+                const el = addTest('neuralTests', `Neural: "${t.input}"`);
+                const start = performance.now();
+                const result = classifier.classify(t.input);
+                const time = (performance.now() - start).toFixed(2);
+
+                const pass = result.neuralPattern === t.expected || result.pattern === t.expected;
+                setTestResult(el, pass, time, `pattern=${result.pattern} neural=${result.neuralPattern || '—'}`);
+                log(`Neural: "${t.input}" → ${result.pattern} ${pass ? '✓' : '✗'}`, pass);
+            }
+        }
+
+        // ==================== RUNTIME TESTS ====================
+
+        function testRuntime() {
+            const tests = [
+                { intent: 'CreateAPI', expected: 'web.app()' },
+                { intent: 'CreateUI', expected: 'Window' },
+                { intent: 'GenerateCRUD', expected: 'db.query' },
+                { intent: 'CreateWebsite', expected: 'app.listen' },
+                { intent: 'RunTests', expected: 'kof test' }
+            ];
+
+            for (const t of tests) {
+                const el = addTest('runtimeTests', `Runtime: ${t.intent}`);
+                const start = performance.now();
+                const code = classifier.generateCode(t.intent, {});
+                const time = (performance.now() - start).toFixed(2);
+
+                const pass = code.includes(t.expected);
+                setTestResult(el, pass, time, `contém "${t.expected}"`);
+                log(`Runtime: ${t.intent} → ${pass ? '✓' : '✗'}`, pass);
+            }
+        }
+
+        // ==================== ARCHITECTURE TESTS ====================
+
+        async function testArchitectures() {
+            const archs = ['tiny', 'small', 'medium', 'large', 'xlarge'];
+            const resultsEl = document.getElementById('archResults');
+            resultsEl.innerHTML = '';
+
+            const { texts, labels } = classifier.generateTrainingData(600);
+
+            for (const arch of archs) {
+                const card = document.createElement('div');
+                card.className = 'arch-card';
+                card.innerHTML = `
+                    <div class="name">${arch.toUpperCase()}</div>
+                    <div class="value">—</div>
+                    <div class="label">params</div>
+                    <div class="value" style="font-size:14px; margin-top:8px;">—</div>
+                    <div class="label">tempo</div>
+                `;
+                resultsEl.appendChild(card);
+
+                const start = performance.now();
+                await classifier.createModel(arch);
+                await classifier.train(texts, labels, 5);
+                const time = ((performance.now() - start) / 1000).toFixed(2);
+
+                const info = classifier.getModelInfo();
+
+                // Test accuracy
+                let correct = 0;
+                const testSamples = classifier.generateTrainingData(100);
+                for (let i = 0; i < testSamples.texts.length; i++) {
+                    const result = classifier.classify(testSamples.texts[i]);
+                    const expected = classifier.patterns[testSamples.labels[i]].name;
+                    if (result.pattern === expected || result.neuralPattern === expected) correct++;
+                }
+                const accuracy = ((correct / testSamples.texts.length) * 100).toFixed(1);
+
+                card.querySelector('.value').textContent = info.params.toLocaleString();
+                card.querySelectorAll('.value')[1].textContent = time + 's';
+
+                log(`Arch ${arch}: ${info.params.toLocaleString()} params, ${time}s, ${accuracy}% acc`, true);
+            }
+        }
+
+        // ==================== RUN ALL ====================
+
+        async function runAllTests() {
+            const btn = document.getElementById('runBtn');
+            btn.disabled = true;
+            btn.textContent = 'Executando...';
+
+            results = { passed: 0, failed: 0, total: 0, times: [] };
+
+            // Clear previous results
+            document.getElementById('brainTests').innerHTML = '<div class="section-title">01 — Brain (Análise de Intenção)</div>';
+            document.getElementById('neuralTests').innerHTML = '<div class="section-title">02 — Neural (Classificação)</div>';
+            document.getElementById('runtimeTests').innerHTML = '<div class="section-title">03 — KOF Runtime (Geração de Código)</div>';
+            document.getElementById('log').innerHTML = '';
+
+            log('Iniciando testes...');
+
+            // Run sync tests
+            testBrain();
+            testNeural();
+            testRuntime();
+
+            // Run architecture tests (async)
+            log('Testando arquiteturas...');
+            await testArchitectures();
+
+            log(`Testes concluídos: ${results.passed}/${results.total} passaram`, results.failed === 0);
+
+            btn.disabled = false;
+            btn.textContent = 'Executar Todos os Testes';
+        }
+    </script>
+</body>
+</html>
