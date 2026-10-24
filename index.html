@@ -571,8 +571,8 @@
             status.textContent = 'Gerando dados...';
             const { texts, labels } = classifier.generateTrainingData(600);
 
-            status.textContent = 'Treinando...';
-            await classifier.train(texts, labels, 5, (epoch, total, logs) => {
+            status.textContent = 'Treinando (rápido)...';
+            await classifier.train(texts, labels, 3, (epoch, total, logs) => {
                 status.textContent = `Treinando... epoch ${epoch}/${total} (loss: ${logs.loss?.toFixed(3)})`;
             });
 
