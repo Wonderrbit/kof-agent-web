@@ -1,8 +1,11 @@
+// App logic for KOF Agent Web
+
+// App state
 let classifier = new KofNeuralClassifier();
 let selectedArch = 'small';
 let isTraining = false;
 
-// Load pre-trained weights on startup
+// Initialize
 function init() {
     classifier.loadPretrained().then(function(loaded) {
         if (loaded) {
@@ -91,11 +94,11 @@ function classify() {
     const result = classifier.classify(input);
     const elapsed = performance.now() - start;
 
-    const html = `<span class="kw">padrão</span>: <span class="st">${result.pattern}</span>
-<span class="kw">método</span>: <span class="ty">${result.method}</span>
-<span class="kw">confiança</span>: <span class="fn">${(result.confidence * 100).toFixed(1)}%</span>
-<span class="kw">neural</span>: <span class="ty">${result.neuralPattern || '—'}</span>
-<span class="kw">intent</span>: <span class="ty">${result.intent}</span>`;
+    const html = '<span class="kw">padrão</span>: <span class="st">' + result.pattern + '</span>\n' +
+        '<span class="kw">método</span>: <span class="ty">' + result.method + '</span>\n' +
+        '<span class="kw">confiança</span>: <span class="fn">' + (result.confidence * 100).toFixed(1) + '%</span>\n' +
+        '<span class="kw">neural</span>: <span class="ty">' + (result.neuralPattern || '—') + '</span>\n' +
+        '<span class="kw">intent</span>: <span class="ty">' + result.intent + '</span>';
 
     document.getElementById('outCls').innerHTML = html;
     document.getElementById('perfNeural').textContent = elapsed.toFixed(2) + 'ms';
@@ -114,13 +117,13 @@ function copyCode() {
 }
 
 function highlightKof(code) {
-    // Escape HTML first, then apply syntax highlighting
+    // Escape HTML entities first, then apply syntax highlighting
     const escaped = code
         .replace(/&/g, '&')
         .replace(/</g, '<')
         .replace(/>/g, '>')
         .replace(/"/g, '"')
-        .replace(/'/g, ''');
+        .replace(/'/g, "'");
     
     return escaped
         .replace(/\b(record|class|interface|extends|var|val|return|if|else|for|while|when|try|catch|throw|main|constructor)\b/g, '<span class="kw">$1</span>')
@@ -129,3 +132,11 @@ function highlightKof(code) {
         .replace(/"([^&]*)"/g, '<span class="st">"$1"</span>')
         .replace(/(\/\/.*$)/gm, '<span style="color:var(--text-dim)">$1</span>');
 }
+
+// Expor funções globalmente para onclick handlers
+window.selectArch = selectArch;
+window.trainModel = trainModel;
+window.fill = fill;
+window.generate = generate;
+window.classify = classify;
+window.copyCode = copyCode;
