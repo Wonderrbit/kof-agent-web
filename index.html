@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KOF Agent Web — Gere código KOF a partir de texto</title>
     <link rel="icon" href="https://koflang.github.io/kof.png?v=14" type="image/png">
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
     <style>
         :root {
             --bg: #0a0a0a;
@@ -557,7 +556,12 @@
             const status = document.getElementById('trainStatus');
             btn.innerHTML = '<span class="loading"></span>';
             btn.disabled = true;
-            status.textContent = 'Criando modelo...';
+            status.textContent = 'Carregando TensorFlow.js...';
+
+            // Lazy-load TensorFlow.js only when training
+            if (typeof tf === 'undefined') {
+                await loadTensorFlow();
+            }
 
             const start = performance.now();
 
@@ -582,6 +586,20 @@
             btn.disabled = false;
             status.textContent = `Modelo ${selectedArch} pronto`;
             isTraining = false;
+        }
+
+        // Lazy-load TensorFlow.js
+        function loadTensorFlow() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js';
+                script.onload = () => {
+                    console.log('TensorFlow.js loaded');
+                    resolve();
+                };
+                script.onerror = () => reject(new Error('Failed to load TensorFlow.js'));
+                document.head.appendChild(script);
+            });
         }
 
         function fill(id, text) {
