@@ -642,12 +642,20 @@
         }
 
         function highlightKof(code) {
-            return code
+            // Escape HTML first, then apply syntax highlighting
+            const escaped = code
+                .replace(/&/g, '&')
+                .replace(/</g, '<')
+                .replace(/>/g, '>')
+                .replace(/"/g, '"')
+                .replace(/'/g, ''');
+            
+            return escaped
                 .replace(/\b(record|class|interface|extends|var|val|return|if|else|for|while|when|try|catch|throw|main|constructor)\b/g, '<span class="kw">$1</span>')
                 .replace(/\b(String|Int|Bool|List|Map|Void)\b/g, '<span class="ty">$1</span>')
                 .replace(/\b(println|json\.encode|json\.decode|web\.app|db\.query|listOf|mapOf)\b/g, '<span class="fn">$1</span>')
-                .replace(/"([^"]*)"/g, '<span class="st">"$1"</span>')
-                .replace(/(\/\/.*)/g, '<span style="color:var(--text-dim)">$1</span>');
+                .replace(/"([^&]*)"/g, '<span class="st">"$1"</span>')
+                .replace(/(\/\/.*$)/gm, '<span style="color:var(--text-dim)">$1</span>');
         }
     </script>
 </body>
