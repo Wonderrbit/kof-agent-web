@@ -572,7 +572,9 @@
             const { texts, labels } = classifier.generateTrainingData(600);
 
             status.textContent = 'Treinando...';
-            await classifier.train(texts, labels, 10);
+            await classifier.train(texts, labels, 5, (epoch, total, logs) => {
+                status.textContent = `Treinando... epoch ${epoch}/${total} (loss: ${logs.loss?.toFixed(3)})`;
+            });
 
             const elapsed = ((performance.now() - start) / 1000).toFixed(1);
             const info = classifier.getModelInfo();

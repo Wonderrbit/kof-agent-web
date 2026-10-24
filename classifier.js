@@ -301,7 +301,7 @@ class KofNeuralClassifier {
     /**
      * Train the TF.js model
      */
-    async train(texts, labels, epochs = 10) {
+    async train(texts, labels, epochs = 5, onEpochEnd) {
         if (!this.model || typeof tf === 'undefined') {
             console.warn('Model not created or TF.js not available');
             return;
@@ -314,11 +314,13 @@ class KofNeuralClassifier {
 
         await this.model.fit(xs, ys, {
             epochs,
-            batchSize: 32,
+            batchSize: 64,
             verbose: 0,
             callbacks: {
                 onEpochEnd: (epoch, logs) => {
-                    console.log(`Epoch ${epoch + 1}/${epochs}: loss=${logs.loss?.toFixed(4)}, acc=${logs.acc?.toFixed(4)}`);
+                    const msg = `Epoch ${epoch + 1}/${epochs}: loss=${logs.loss?.toFixed(4)}, acc=${logs.acc?.toFixed(4)}`;
+                    console.log(msg);
+                    if (onEpochEnd) onEpochEnd(epoch + 1, epochs, logs);
                 }
             }
         });
