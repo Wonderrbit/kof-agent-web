@@ -3,13 +3,15 @@ let selectedArch = 'small';
 let isTraining = false;
 
 // Load pre-trained weights on startup
-(async function init() {
-    const loaded = await classifier.loadPretrained();
-    if (loaded) {
-        document.getElementById('trainStatus').textContent = 'Modelo pré-treinado carregado';
-        console.log('Pre-trained model ready');
-    }
-})();
+function init() {
+    classifier.loadPretrained().then(function(loaded) {
+        if (loaded) {
+            document.getElementById('trainStatus').textContent = 'Modelo pré-treinado carregado';
+            console.log('Pre-trained model ready');
+        }
+    });
+}
+init();
 
 // Architecture selection
 function selectArch(arch) {
