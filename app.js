@@ -140,3 +140,4 @@ window.fill = fill;
 window.generate = generate;
 window.classify = classify;
 window.copyCode = copyCode;
+window.highlightKof = highlightKof;
