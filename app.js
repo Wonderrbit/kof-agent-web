@@ -117,7 +117,7 @@ function copyCode() {
 }
 
 function highlightKof(code) {
-    // Escape HTML entities first, then apply syntax highlighting
+    // Escape HTML entities first
     const escaped = code
         .replace(/&/g, '&')
         .replace(/</g, '<')
@@ -125,12 +125,35 @@ function highlightKof(code) {
         .replace(/"/g, '"')
         .replace(/'/g, "'");
     
-    return escaped
-        .replace(/\b(record|class|interface|extends|var|val|return|if|else|for|while|when|try|catch|throw|main|constructor)\b/g, '<span class="kw">$1</span>')
-        .replace(/\b(String|Int|Bool|List|Map|Void)\b/g, '<span class="ty">$1</span>')
-        .replace(/\b(println|json\.encode|json\.decode|web\.app|db\.query|listOf|mapOf)\b/g, '<span class="fn">$1</span>')
-        .replace(/"([^&]*)"/g, '<span class="st">"$1"</span>')
-        .replace(/(\/\/.*$)/gm, '<span style="color:var(--text-dim)">$1</span>');
+    // Apply syntax highlighting - process in order, avoiding matches inside HTML tags
+    const kw = /\b(record|class|interface|extends|var|val|return|if|else|for|while|when|try|catch|throw|main|constructor)\b/;
+    const ty = /\b(String|Int|Bool|List|Map|Void)\b/;
+    const fn = /\b(println|json\.encode|json\.decode|web\.app|db\.query|listOf|mapOf)\b/;
+    const st = /"([^&]*)"/g;
+    const cm = /(\/\/.*$)/gm;
+    
+    let result = escaped;
+    
+    // Replace strings first (they contain quoted text that shouldn't be highlighted)
+    result = result.replace(st, '<span class="st">"$1"</span>');
+    
+    // Replace keywords, types, functions - but only outside HTML tags
+    // Split by HTML tags, highlight text nodes, then rejoin
+    const parts = result.split(/(<[^>]+>)/);
+    for (let i = 0; i < parts.length; i++) {
+        if (!parts[i].startsWith('<')) {
+            parts[i] = parts[i]
+                .replace(/\b(record|class|interface|extends|var|val|return|if|else|for|while|when|try|catch|throw|main|constructor)\b/g, '<span class="kw">$1</span>')
+                .replace(/\b(String|Int|Bool|List|Map|Void)\b/g, '<span class="ty">$1</span>')
+                .replace(/\b(println|json\.encode|json\.decode|web\.app|db\.query|listOf|mapOf)\b/g, '<span class="fn">$1</span>');
+        }
+    }
+    result = parts.join('');
+    
+    // Replace comments
+    result = result.replace(cm, '<span style="color:var(--text-dim)">$1</span>');
+    
+    return result;
 }
 
 // Expor funções globalmente para onclick handlers
