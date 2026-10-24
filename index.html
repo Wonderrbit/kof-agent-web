@@ -523,9 +523,9 @@
         <p>KOF Agent · <a href="https://github.com/Wonderrbit/kof-agent-web" target="_blank">GitHub</a> · <a href="https://koflang.github.io" target="_blank">Kof Language</a></p>
     </footer>
 
-    <script src="brain.js"></script>
-    <script src="classifier.js"></script>
-    <script>
+    <script src="brain.js" defer></script>
+    <script src="classifier.js" defer></script>
+    <script src="app.js" defer></script>
         let classifier = new KofNeuralClassifier();
         let selectedArch = 'small';
         let isTraining = false;
