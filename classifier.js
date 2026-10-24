@@ -239,6 +239,7 @@ class KofNeuralClassifier {
             'CreateWebsite': `web.app()\n\napp.get("/") {\n  return "Hello from Kof"\n}\n\napp.listen(8080)`,
             'CreateAPI': `web.app()\n\napp.get("/api/users") {\n  return json.encode(users)\n}\n\napp.post("/api/users") {\n  var user = json.decode<User>(body())\n  return json.encode(user)\n}`,
             'CreateUI': `var w = Window("App")\nvar btn = Button("Clique", () -> {\n  println("Clicado!")\n})\nw.bind(btn)\nw.show()`,
+            'CreateClass': `class User {\n  var name: String\n  var age: Int\n  \n  constructor(name: String, age: Int) {\n    this.name = name\n    this.age = age\n  }\n  \n  function greet() {\n    println("Olá, " + this.name)\n  }\n}`,
             'GenerateCRUD': `record User(String name, Int age)\n\nweb.app()\n\napp.get("/users") {\n  return json.encode(db.query<User>("SELECT * FROM users"))\n}`,
             'RunTests': `kof test .`
         };

@@ -110,6 +110,7 @@ class KofBrain {
             'UI+create': 'CreateUI',
             'Docs+generate': 'GenerateDocs',
             'RPA+create': 'CreateRPA',
+            'Symbol+create': 'CreateClass',
             'Symbol+search': 'SearchSymbol'
         };
 
