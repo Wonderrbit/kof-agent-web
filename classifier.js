@@ -244,6 +244,101 @@ class KofNeuralClassifier {
         };
         return templates[intent] || `main() {\n  println("${entities.quoted || 'Hello'}")\n}`;
     }
+
+    /**
+     * Generate synthetic training data from templates
+     */
+    generateTrainingData(numSamples = 600) {
+        const texts = [];
+        const labels = [];
+        const intents = Object.keys(this.patterns).map(p => p.name);
+        
+        const templates = {
+            'hello': ['olá mundo', 'hello world', 'imprimir olá', 'mostrar mensagem', 'println hello'],
+            'function': ['criar função', 'definir método', 'function calcular', 'criar function', 'método soma'],
+            'record': ['criar registro', 'record usuário', 'estrutura dados', 'definir record', 'registro campos'],
+            'class': ['criar classe', 'class animal', 'definir classe', 'nova classe', 'classe abstrata'],
+            'list': ['criar lista', 'lista itens', 'array elementos', 'list dados', 'lista vazia'],
+            'map': ['criar mapa', 'dicionário dados', 'map lookup', 'mapa chave-valor', 'tabela consulta'],
+            'for_loop': ['loop para cada', 'iterar lista', 'for coleção', 'repetir itens', 'cada elemento'],
+            'if_else': ['condicional se', 'if else', 'verificar condição', 'se senão', 'decisão lógica'],
+            'when': ['switch caso', 'when valor', 'escolha multipla', 'cases seleção', 'pattern matching'],
+            'lambda': ['função anônima', 'lambda expression', 'arrow function', 'closure', 'callback lambda'],
+            'http': ['servidor web', 'http server', 'api rest', 'rota get', 'endpoint'],
+            'json': ['serializar json', 'parse json', 'encode objeto', 'decode json', 'marshal dados'],
+            'async': ['async await', 'concorrência', 'spawn thread', 'tarefa assíncrona', 'parallel'],
+            'try_catch': ['tratar erro', 'try catch', 'exceção', 'error handling', 'capturar erro'],
+            'inheritance': ['herança classe', 'extends pai', 'filho herda', 'super classe', 'herdar'],
+            'interface': ['interface contrato', 'definir interface', 'abstração', 'contrato método'],
+            'null_check': ['verificar null', 'null safety', 'checar nulo', 'nil check', 'validar null'],
+            'route': ['rota http', 'url endpoint', 'path rota', 'definir rota', 'router express'],
+            'database': ['banco dados', 'sql query', 'orm persistência', 'database table', 'conexão db'],
+            'record_method': ['record método', 'método record', 'behavior record', 'record function']
+        };
+
+        for (const intent of intents) {
+            const intentTemplates = templates[intent] || [intent];
+            for (let i = 0; i < Math.ceil(numSamples / intents.length); i++) {
+                const template = intentTemplates[i % intentTemplates.length];
+                texts.push(template);
+                labels.push(intents.indexOf(intent));
+            }
+        }
+
+        // Shuffle
+        const combined = texts.map((t, i) => ({ text: t, label: labels[i] }));
+        for (let i = combined.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [combined[i], combined[j]] = [combined[j], combined[i]];
+        }
+
+        return {
+            texts: combined.slice(0, numSamples).map(c => c.text),
+            labels: combined.slice(0, numSamples).map(c => c.label)
+        };
+    }
+
+    /**
+     * Train the TF.js model
+     */
+    async train(texts, labels, epochs = 10) {
+        if (!this.model || typeof tf === 'undefined') {
+            console.warn('Model not created or TF.js not available');
+            return;
+        }
+
+        this.buildVocabulary(texts);
+        
+        const xs = tf.tensor2d(texts.map(t => this.textToSequence(t)));
+        const ys = tf.oneHot(tf.tensor1d(labels, 'int32'), this.patterns.length);
+
+        await this.model.fit(xs, ys, {
+            epochs,
+            batchSize: 32,
+            verbose: 0,
+            callbacks: {
+                onEpochEnd: (epoch, logs) => {
+                    console.log(`Epoch ${epoch + 1}/${epochs}: loss=${logs.loss?.toFixed(4)}, acc=${logs.acc?.toFixed(4)}`);
+                }
+            }
+        });
+
+        xs.dispose();
+        ys.dispose();
+        this.isReady = true;
+    }
+
+    /**
+     * Get model info for stats display
+     */
+    getModelInfo() {
+        if (!this.model) return { params: 0, layers: 0 };
+        
+        const params = this.model.countParams();
+        const layers = this.model.layers.length;
+        
+        return { params, layers };
+    }
 }
 
 if (typeof module !== 'undefined' && module.exports) {
